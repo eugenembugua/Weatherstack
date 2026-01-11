@@ -1,0 +1,52 @@
+version: 2
+
+sources:
+  - name: raw_weather_source
+    schema: data
+    description: "Raw data landing zone for Weatherstack API data."
+    tables:
+      - name: nairobi_weather_data
+        description: "Weather and air quality metrics for Nairobi."
+        loaded_at_field: recorded_at  #The column dbt checks to see the "time"
+        freshness:
+          warn_after: {count: 15, period: minute}  #Yellow flag if data is 15 mins late
+          error_after: {count: 30, period: minute} #Red flag if data is 30 mins late
+        columns:
+          - name: id
+            description: "Primary key: unique identifier for each observation record."
+          
+          - name: temperature
+            description: "Ambient air temperature recorded in degrees Celsius."
+          
+          - name: weather_description
+            description: "Textual summary of weather conditions."
+          
+          - name: wind_speed
+            description: "Wind speed measured in kilometers per hour (km/h)."
+          
+          - name: humidity
+            description: "Relative humidity."
+          
+          - name: pressure
+            description: "Atmospheric pressure."
+          
+          - name: time
+            description: "The local time of the observation."
+          
+          - name: recorded_at
+            description: "The full ISO-8601 timestamp of the observation."
+          
+          - name: utc_offset
+            description: "The difference in hours between local Nairobi time and UTC."
+          
+          - name: co
+            description: "Carbon Monoxide concentration in μg/m³."
+          
+          - name: so2
+            description: "Sulfur Dioxide concentration in μg/m³."
+          
+          - name: pm2_5
+            description: "Fine particulate matter (diameter < 2.5 μm) concentration in μg/m³."
+          
+          - name: pm10
+            description: "Inhalable particulate matter (diameter < 10 μm) concentration in μg/m³."

@@ -1,0 +1,138 @@
+x-superset-user: &superset-user root
+x-superset-volumes: &superset-volumes
+  - ./docker:/app/docker
+  # FIX: Mount your local file to the exact path Superset expects for overrides
+  - ./docker/superset_config_docker.py:/app/pythonpath/superset_config_docker.py
+
+services:
+  db:
+    restart: unless-stopped
+    container_name: postgres_container
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: weatherstack
+      POSTGRES_USER: eugene
+      POSTGRES_PASSWORD: ${DBT_PASSWORD}
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+      - ./postgres/airflow_init.sql:/docker-entrypoint-initdb.d/airflow_init.sql
+      - ./postgres/superset_init.sql:/docker-entrypoint-initdb.d/superset_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eugene -d weatherstack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - weatherstack-network
+
+  af:
+    container_name: airflow_container
+    image: apache/airflow:2.10.2-python3.11
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://eugene:${DBT_PASSWORD}@db:5432/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+      - AIRFLOW__WEBSERVER__WEB_SERVER_MASTER_TIMEOUT=480
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./api-request:/opt/airflow/api-request
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - weatherstack-network
+
+    command: >
+      bash -c "airflow db migrate &&
+      airflow users create --username admin --firstname eugene --lastname mbugua --role Admin --email eugenembugua02@example.com --password admin;
+      airflow scheduler &
+      exec airflow webserver"
+
+  dbt:
+    container_name: dbt_container
+    image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
+    volumes:
+      - ./dbt:/usr/app
+      - ./dbt/profiles.yml:/root/.dbt/profiles.yml
+    environment:
+      - DBT_PASSWORD=${DBT_PASSWORD}
+    working_dir: /usr/app
+    profiles: ["dbt_only"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - weatherstack-network
+
+  superset-init:
+    image: apache/superset:4.1.1
+    container_name: superset_init
+    command: ["/app/docker/docker-init.sh"]
+    env_file:
+      - path: docker/.env
+        required: true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    user: *superset-user
+    volumes: *superset-volumes
+    environment:
+      - PYTHONPATH=/app/pythonpath
+      - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config_docker.py
+    networks:
+      - weatherstack-network
+
+  superset:
+    image: apache/superset:4.1.1
+    container_name: superset_app
+    command: ["/usr/bin/run-server.sh"]
+    restart: unless-stopped
+    ports:
+      - ${SUPERSET_PORT:-8088}:8088
+    env_file:
+      - path: docker/.env
+        required: true
+    user: *superset-user
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    volumes: *superset-volumes
+    environment:
+      - PYTHONPATH=/app/pythonpath
+      - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config_docker.py
+    networks:
+      - weatherstack-network
+
+  redis:
+    image: redis:7
+    container_name: superset_cache
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - weatherstack-network
+
+networks:
+  weatherstack-network:
+    driver: bridge
+    external: true
+
+volumes:
+  redis:
+    external: false

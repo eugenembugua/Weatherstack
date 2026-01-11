@@ -1,0 +1,23 @@
+#Virtual Environments
+weather-env/
+
+#Git
+.git
+.gitignore
+
+#Local Data
+postgres/data/
+airflow/logs/
+dbt/target/
+dbt/dbt_packages/
+superset/.setup-complete
+
+#Python Build & Cache
+__pycache__/
+*.pyc
+*.pyo
+Weatherstack_Project.egg-info/
+
+#Secrets
+.env
+docker/.env

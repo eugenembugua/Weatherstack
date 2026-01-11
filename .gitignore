@@ -1,0 +1,44 @@
+# Virtual Environment
+weather-env/
+
+# Environment Secrets
+.env
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Build artifacts
+Weatherstack_Project.egg-info/
+dist/
+build/
+
+# Postgres / Database
+postgres/data/
+# Ignore actual database data if it's stored in a subfolder
+*.db
+*.sqlite
+
+
+# Airflow
+airflow/logs/
+airflow/airflow.db
+airflow/unittests.cfg
+
+# dbt (Data Build Tool)
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+x# Superset
+superset/.setup-complete
+*.user.yml
+*.profiles.yml
+
+# Secrets and Credentials
+api-request/secrets.jsondbt/profiles.yml
+dbt/user.yml
+api-request/secrets.json
